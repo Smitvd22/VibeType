@@ -22,12 +22,16 @@ export function classifyGesture(landmarks: NormalizedLandmark[]): Gesture {
   const pinkyTip = landmarks[20];
   const pinkyPip = landmarks[18];
 
+  const middleMcp = landmarks[9];
+  const ringMcp = landmarks[13];
+  const pinkyMcp = landmarks[17];
+
   // In video coordinates, y goes down (0 is top, 1 is bottom)
-  // So "extended" means y is smaller (higher up) than the PIP joint
-  const isIndexExtended = indexTip.y < indexPip.y;
-  const isMiddleExtended = middleTip.y < middlePip.y;
-  const isRingExtended = ringTip.y < ringPip.y;
-  const isPinkyExtended = pinkyTip.y < pinkyPip.y;
+  // So "extended" means y is smaller (higher up) than the PIP joint AND MCP joint
+  const isIndexExtended = indexTip.y < indexPip.y && indexPip.y < indexMcp.y;
+  const isMiddleExtended = middleTip.y < middlePip.y && middlePip.y < middleMcp.y;
+  const isRingExtended = ringTip.y < ringPip.y && ringPip.y < ringMcp.y;
+  const isPinkyExtended = pinkyTip.y < pinkyPip.y && pinkyPip.y < pinkyMcp.y;
 
   // Thumbs up logic: thumb tip is higher than index mcp and wrist, and other fingers are curled
   const isThumbUp = thumbTip.y < indexMcp.y && thumbTip.y < wrist.y;

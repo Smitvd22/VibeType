@@ -1,10 +1,10 @@
 "use client";
 
-import { Mic, MicOff, Sparkles, Activity } from "lucide-react";
+import { Mic, MicOff, Sparkles, Activity, Copy, Check } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useEmojiEngine } from "@/hooks/useEmojiEngine";
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 const CameraFeed = dynamic(() => import("@/components/CameraFeed"), { 
   ssr: false,
@@ -17,18 +17,46 @@ const CameraFeed = dynamic(() => import("@/components/CameraFeed"), {
 
 export default function Home() {
   const { transcript, interimTranscript, isListening, startListening, stopListening, setTranscript, error: speechError } = useSpeechRecognition();
-  const { triggerEmoji, activeEmoji } = useEmojiEngine(setTranscript);
+  const { activeEmoji, evaluateEmoji, mappings, saveMappings } = useEmojiEngine(setTranscript);
   const [uiExpression, setUiExpression] = useState("none");
   const [uiGesture, setUiGesture] = useState("none");
+  
+  const uiExpressionRef = useRef("none");
+  const uiGestureRef = useRef("none");
+
+  const [copied, setCopied] = useState(false);
 
   const handleExpression = (exp: string) => {
     setUiExpression(exp);
-    triggerEmoji(exp);
+    uiExpressionRef.current = exp;
+    evaluateEmoji(exp, uiGestureRef.current);
   };
 
   const handleGesture = (gest: string) => {
     setUiGesture(gest);
-    triggerEmoji(gest);
+    uiGestureRef.current = gest;
+    evaluateEmoji(uiExpressionRef.current, gest);
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(transcript);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const updateMapping = (id: string, field: 'expression' | 'gesture' | 'emoji', value: string) => {
+    const newMappings = mappings.map(m => m.id === id ? { ...m, [field]: value } : m);
+    saveMappings(newMappings);
+  };
+
+  const addMapping = () => {
+    const newMappings = [...mappings, { id: Date.now().toString(), expression: 'none', gesture: 'none', emoji: '✨' }];
+    saveMappings(newMappings);
+  };
+
+  const removeMapping = (id: string) => {
+    const newMappings = mappings.filter(m => m.id !== id);
+    saveMappings(newMappings);
   };
 
   return (
@@ -72,7 +100,7 @@ export default function Home() {
       </header>
 
       {/* Main Grid Layout */}
-      <div className="w-full grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 z-10">
+      <div className="w-full grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 z-10 pb-8">
         
         {/* Left Column: Media Feed & Stats */}
         <div className="lg:col-span-2 flex flex-col gap-6">
@@ -100,28 +128,104 @@ export default function Home() {
               <div className="text-xs text-zinc-400">Gesture: {uiGesture}</div>
             </div>
           </section>
+
+          {/* Emoji Mapping Customization UI */}
+          <section className="glass rounded-2xl p-6 flex flex-col gap-4">
+            <h3 className="font-semibold text-zinc-200">Emoji Mappings</h3>
+            <p className="text-sm text-zinc-400">Customize how your expressions and gestures map to emojis.</p>
+            
+            <div className="grid grid-cols-4 gap-2 text-sm font-medium text-zinc-400 mt-2 mb-1">
+              <div>Expression</div>
+              <div>Gesture</div>
+              <div className="text-center">Emoji</div>
+              <div></div>
+            </div>
+            
+            <div className="flex flex-col gap-3">
+              {mappings.map(mapping => (
+                <div key={mapping.id} className="grid grid-cols-4 gap-2 items-center">
+                  <select 
+                    value={mapping.expression}
+                    onChange={(e) => updateMapping(mapping.id, 'expression', e.target.value)}
+                    className="bg-white/10 rounded-lg p-2.5 text-white outline-none focus:ring-2 focus:ring-primary-500 border border-white/5"
+                  >
+                    <option value="none" className="bg-zinc-900">None</option>
+                    <option value="smile" className="bg-zinc-900">Smile</option>
+                    <option value="laugh" className="bg-zinc-900">Laugh</option>
+                    <option value="surprise" className="bg-zinc-900">Surprise</option>
+                  </select>
+                  
+                  <select 
+                    value={mapping.gesture}
+                    onChange={(e) => updateMapping(mapping.id, 'gesture', e.target.value)}
+                    className="bg-white/10 rounded-lg p-2.5 text-white outline-none focus:ring-2 focus:ring-primary-500 border border-white/5"
+                  >
+                    <option value="none" className="bg-zinc-900">None</option>
+                    <option value="thumbs_up" className="bg-zinc-900">Thumbs Up</option>
+                    <option value="peace_sign" className="bg-zinc-900">Peace Sign</option>
+                    <option value="open_palm" className="bg-zinc-900">Open Palm</option>
+                  </select>
+
+                  <div className="flex justify-center">
+                    <input 
+                      type="text" 
+                      value={mapping.emoji}
+                      onChange={(e) => updateMapping(mapping.id, 'emoji', e.target.value)}
+                      className="bg-white/10 rounded-lg p-2 w-16 text-center text-2xl text-white outline-none focus:ring-2 focus:ring-primary-500 border border-white/5"
+                    />
+                  </div>
+                  
+                  <button 
+                    onClick={() => removeMapping(mapping.id)}
+                    className="text-red-400 hover:bg-red-400/10 p-2.5 rounded-lg transition-colors text-sm font-medium"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+            
+            <button 
+              onClick={addMapping}
+              className="mt-4 border border-white/10 hover:bg-white/10 text-white rounded-xl py-3 transition-colors font-medium flex items-center justify-center gap-2"
+            >
+              <Sparkles className="w-4 h-4" /> Add Custom Mapping
+            </button>
+          </section>
         </div>
 
         {/* Right Column: Live Transcript */}
-        <div className="glass rounded-3xl flex flex-col overflow-hidden">
+        <div className="glass rounded-3xl flex flex-col overflow-hidden h-[600px] lg:h-auto">
           <div className="p-4 border-b border-white/10 bg-white/5 flex justify-between items-center">
             <h2 className="font-semibold text-zinc-200 flex items-center gap-2">
               Transcript
             </h2>
+            <button
+              onClick={handleCopy}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors text-sm text-zinc-300"
+              title="Copy Transcript"
+            >
+              {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+              {copied ? <span className="text-emerald-400">Copied!</span> : "Copy"}
+            </button>
           </div>
-          <div className="flex-1 p-6 overflow-y-auto text-lg leading-relaxed text-zinc-200 flex flex-col gap-4">
+          <div className="flex-1 flex flex-col p-6 overflow-hidden gap-4">
             {speechError && (
-              <p className="text-red-400 text-sm bg-red-400/10 p-3 rounded-lg">{speechError}</p>
+              <p className="text-red-400 text-sm bg-red-400/10 p-3 rounded-lg shrink-0">{speechError}</p>
             )}
-            {!transcript && !interimTranscript && !speechError && (
-              <p className="opacity-50 italic">Waiting for speech input...</p>
+            
+            <textarea
+              className="flex-1 w-full bg-transparent resize-none outline-none text-lg leading-relaxed text-zinc-200 scrollbar-thin"
+              value={transcript}
+              onChange={(e) => setTranscript(e.target.value)}
+              placeholder="Waiting for speech input..."
+            />
+            
+            {interimTranscript && (
+              <div className="shrink-0 p-3 bg-white/5 rounded-xl border border-white/5 text-emerald-400/80 text-lg leading-relaxed italic animate-pulse">
+                {interimTranscript}
+              </div>
             )}
-            <p className="whitespace-pre-wrap">
-              {transcript}
-              {interimTranscript && (
-                <span className="text-emerald-400 opacity-80"> {interimTranscript}</span>
-              )}
-            </p>
           </div>
         </div>
         
