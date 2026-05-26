@@ -1,71 +1,62 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-
-export interface EmojiMapping {
-  id: string;
-  expression: string;
-  gesture: string;
-  emoji: string;
-}
-
-const DEFAULT_MAPPINGS: EmojiMapping[] = [
-  { id: '1', expression: 'smile', gesture: 'none', emoji: '😊' },
-  { id: '2', expression: 'laugh', gesture: 'none', emoji: '😂' },
-  { id: '3', expression: 'none', gesture: 'thumbs_up', emoji: '👍' },
-  { id: '4', expression: 'none', gesture: 'peace_sign', emoji: '✌️' },
-  { id: '5', expression: 'none', gesture: 'open_palm', emoji: '👋' }
-];
+import { useState, useCallback, useRef } from "react";
+import { GestureDetection } from "./useGestureEmbeddings";
+import { FaceDetection } from "./useFaceEmbeddings";
+import { ComboDetection } from "./useComboEmbeddings";
 
 export function useEmojiEngine(setTranscript: React.Dispatch<React.SetStateAction<string>>) {
   const lastEmojiTime = useRef<number>(0);
   const [activeEmoji, setActiveEmoji] = useState<{ id: number; char: string } | null>(null);
-  const [mappings, setMappings] = useState<EmojiMapping[]>(DEFAULT_MAPPINGS);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('vibetotype_emoji_mappings');
-    if (saved) {
-      try {
-        setMappings(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse emoji mappings", e);
+  const currentDetectionRef = useRef<string | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const evaluateDetections = useCallback((
+    gestureDet: GestureDetection, 
+    faceDet: FaceDetection,
+    comboDet: ComboDetection
+  ) => {
+    const now = Date.now();
+    if (now - lastEmojiTime.current < 2000) return; // 2 seconds cooldown after triggering
+    
+    let emojiToTrigger: string | null = null;
+
+    if (comboDet.combo) {
+       emojiToTrigger = comboDet.combo.emoji;
+    } else if (gestureDet.gesture && faceDet.expression) {
+       emojiToTrigger = `${faceDet.expression.emoji}${gestureDet.gesture.emoji}`;
+    } else if (gestureDet.gesture) {
+       emojiToTrigger = gestureDet.gesture.emoji;
+    } else if (faceDet.expression) {
+       emojiToTrigger = faceDet.expression.emoji;
+    }
+
+    if (emojiToTrigger !== currentDetectionRef.current) {
+      currentDetectionRef.current = emojiToTrigger;
+      
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+
+      if (emojiToTrigger) {
+        // Start a 3-second timer before triggering
+        timeoutRef.current = setTimeout(() => {
+          const triggerTime = Date.now();
+          lastEmojiTime.current = triggerTime;
+          setActiveEmoji({ id: triggerTime, char: emojiToTrigger! });
+          
+          setTranscript(prev => prev ? `${prev} ${emojiToTrigger!}` : emojiToTrigger!);
+          
+          setTimeout(() => {
+            setActiveEmoji(prev => prev?.id === triggerTime ? null : prev);
+          }, 1500);
+          
+          // Clear current detection so they have to move and come back to re-trigger
+          currentDetectionRef.current = null;
+        }, 3000);
       }
     }
-  }, []);
+  }, [setTranscript]);
 
-  const saveMappings = (newMappings: EmojiMapping[]) => {
-    setMappings(newMappings);
-    localStorage.setItem('vibetotype_emoji_mappings', JSON.stringify(newMappings));
-  };
-
-  const evaluateEmoji = useCallback((expression: string, gesture: string) => {
-    if (expression === "none" && gesture === "none") return;
-    
-    const now = Date.now();
-    if (now - lastEmojiTime.current < 2000) return;
-
-    // Prioritize exact combinations (e.g. smile + peace_sign)
-    let matchedMapping = mappings.find(m => 
-      m.expression === expression && m.gesture === gesture && m.expression !== "none" && m.gesture !== "none"
-    );
-
-    // If no combination, look for individual matches
-    if (!matchedMapping) {
-      matchedMapping = mappings.find(m => 
-        (m.expression === expression && m.gesture === "none") ||
-        (m.gesture === gesture && m.expression === "none")
-      );
-    }
-
-    if (matchedMapping) {
-      lastEmojiTime.current = now;
-      setActiveEmoji({ id: now, char: matchedMapping.emoji });
-      
-      setTranscript(prev => prev ? `${prev} ${matchedMapping.emoji}` : matchedMapping.emoji);
-      
-      setTimeout(() => {
-        setActiveEmoji(prev => prev?.id === now ? null : prev);
-      }, 1500);
-    }
-  }, [mappings, setTranscript]);
-
-  return { activeEmoji, evaluateEmoji, mappings, saveMappings };
+  return { activeEmoji, evaluateDetections };
 }

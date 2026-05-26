@@ -3,33 +3,27 @@
 import { useWebcam } from "@/hooks/useWebcam";
 import { useMediaPipeHands } from "@/hooks/useMediaPipeHands";
 import { useMediaPipeFace } from "@/hooks/useMediaPipeFace";
-import { classifyGesture } from "@/lib/GestureEngine";
-import { classifyExpression } from "@/lib/ExpressionEngine";
 import { VideoOff, Loader2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { DrawingUtils, HandLandmarker, FaceLandmarker } from "@mediapipe/tasks-vision";
+import { useEffect, useRef } from "react";
+import { DrawingUtils, HandLandmarker, FaceLandmarker, NormalizedLandmark, Classifications } from "@mediapipe/tasks-vision";
 
 interface CameraFeedProps {
-  onGesture?: (gesture: string) => void;
-  onExpression?: (expression: string) => void;
+  onHandsDetected?: (landmarks: NormalizedLandmark[] | null) => void;
+  onFaceDetected?: (blendshapes: Classifications[] | null) => void;
 }
 
-export default function CameraFeed({ onGesture, onExpression }: CameraFeedProps) {
-  // Suppress harmless MediaPipe WASM logs that Next.js Dev Overlay catches as errors
+export default function CameraFeed({ onHandsDetected, onFaceDetected }: CameraFeedProps) {
   useEffect(() => {
     const originalError = console.error;
     const originalWarn = console.warn;
-    
     console.error = (...args: any[]) => {
       if (typeof args[0] === 'string' && (args[0].includes('XNNPACK') || args[0].includes('gl_context.cc') || args[0].includes('face_landmarker_graph.cc'))) return;
       originalError(...args);
     };
-    
     console.warn = (...args: any[]) => {
       if (typeof args[0] === 'string' && (args[0].includes('XNNPACK') || args[0].includes('gl_context.cc') || args[0].includes('face_landmarker_graph.cc'))) return;
       originalWarn(...args);
     };
-
     return () => {
       console.error = originalError;
       console.warn = originalWarn;
@@ -37,13 +31,11 @@ export default function CameraFeed({ onGesture, onExpression }: CameraFeedProps)
   }, []);
 
   const { videoRef, isReady, error } = useWebcam();
-  const { isModelLoaded: isHandModelLoaded, handResult } = useMediaPipeHands(videoRef);
-  const { isFaceModelLoaded, faceResult } = useMediaPipeFace(videoRef);
+  const { isModelLoaded: isHandModelLoaded, handResult } = useMediaPipeHands(videoRef, onHandsDetected);
+  const { isFaceModelLoaded, faceResult } = useMediaPipeFace(videoRef, onFaceDetected);
   const isModelLoaded = isHandModelLoaded && isFaceModelLoaded;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [currentGesture, setCurrentGesture] = useState<string>("none");
-  const [currentExpression, setCurrentExpression] = useState<string>("none");
 
   useEffect(() => {
     if (!canvasRef.current || !videoRef.current) return;
@@ -68,16 +60,6 @@ export default function CameraFeed({ onGesture, onExpression }: CameraFeedProps)
         });
         drawingUtils.drawLandmarks(landmarks, { color: "#fafafa", lineWidth: 2, radius: 3 });
       }
-      const gesture = classifyGesture(handResult.landmarks[0]);
-      if (gesture !== currentGesture) {
-        setCurrentGesture(gesture);
-        if (onGesture) onGesture(gesture);
-      }
-    } else {
-      if (currentGesture !== "none") {
-        setCurrentGesture("none");
-        if (onGesture) onGesture("none");
-      }
     }
 
     // Face
@@ -89,25 +71,12 @@ export default function CameraFeed({ onGesture, onExpression }: CameraFeedProps)
         });
       }
     }
-    
-    if (faceResult && faceResult.faceBlendshapes && faceResult.faceBlendshapes.length > 0) {
-      const expression = classifyExpression(faceResult.faceBlendshapes);
-      if (expression !== currentExpression) {
-        setCurrentExpression(expression);
-        if (onExpression) onExpression(expression);
-      }
-    } else {
-      if (currentExpression !== "none") {
-        setCurrentExpression("none");
-        if (onExpression) onExpression("none");
-      }
-    }
 
     ctx.restore();
   }, [handResult, faceResult]);
 
   return (
-    <div className="relative w-full h-full flex items-center justify-center bg-black">
+    <div className="relative w-full h-full flex items-center justify-center bg-black rounded-3xl overflow-hidden border border-white/10 shadow-2xl">
       {error ? (
         <div className="flex flex-col items-center gap-4 text-red-400">
           <VideoOff className="w-12 h-12" />
@@ -133,20 +102,6 @@ export default function CameraFeed({ onGesture, onExpression }: CameraFeedProps)
             ref={canvasRef}
             className="absolute inset-0 w-full h-full object-cover pointer-events-none -scale-x-100 z-10"
           />
-          
-          {/* Temporary Dev Overlay for Models */}
-          <div className="absolute bottom-4 left-4 flex flex-col gap-2 z-20">
-            {currentGesture !== "none" && (
-              <div className="glass px-4 py-2 rounded-xl text-white font-bold text-sm">
-                Gesture: {currentGesture}
-              </div>
-            )}
-            {currentExpression !== "none" && (
-              <div className="glass px-4 py-2 rounded-xl text-white font-bold text-sm">
-                Expression: {currentExpression}
-              </div>
-            )}
-          </div>
         </>
       )}
     </div>

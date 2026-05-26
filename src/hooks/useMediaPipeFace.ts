@@ -1,12 +1,17 @@
 import { useState, useEffect, useRef } from "react";
-import { FaceLandmarker, FilesetResolver, FaceLandmarkerResult } from "@mediapipe/tasks-vision";
+import { FaceLandmarker, FilesetResolver, FaceLandmarkerResult, Classifications } from "@mediapipe/tasks-vision";
 
-export function useMediaPipeFace(videoRef: React.RefObject<HTMLVideoElement | null>) {
+export function useMediaPipeFace(
+  videoRef: React.RefObject<HTMLVideoElement | null>,
+  onResult?: (blendshapes: Classifications[] | null) => void
+) {
   const [isFaceModelLoaded, setIsFaceModelLoaded] = useState(false);
   const faceLandmarkerRef = useRef<FaceLandmarker | null>(null);
   const lastVideoTimeRef = useRef(-1);
   const [faceResult, setFaceResult] = useState<FaceLandmarkerResult | null>(null);
   const requestRef = useRef<number>(0);
+  const onResultRef = useRef(onResult);
+  onResultRef.current = onResult;
 
   useEffect(() => {
     let active = true;
@@ -62,6 +67,9 @@ export function useMediaPipeFace(videoRef: React.RefObject<HTMLVideoElement | nu
         try {
           const result = faceLandmarkerRef.current.detectForVideo(video, performance.now());
           setFaceResult(result);
+          if (onResultRef.current) {
+            onResultRef.current(result.faceBlendshapes?.length > 0 ? result.faceBlendshapes : null);
+          }
         } catch (e) {
           console.warn("Face landmarker warning:", e);
         }

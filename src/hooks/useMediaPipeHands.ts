@@ -1,12 +1,17 @@
 import { useState, useEffect, useRef } from "react";
-import { HandLandmarker, FilesetResolver, HandLandmarkerResult } from "@mediapipe/tasks-vision";
+import { HandLandmarker, FilesetResolver, HandLandmarkerResult, NormalizedLandmark } from "@mediapipe/tasks-vision";
 
-export function useMediaPipeHands(videoRef: React.RefObject<HTMLVideoElement | null>) {
+export function useMediaPipeHands(
+  videoRef: React.RefObject<HTMLVideoElement | null>,
+  onResult?: (landmarks: NormalizedLandmark[] | null) => void
+) {
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const handLandmarkerRef = useRef<HandLandmarker | null>(null);
   const lastVideoTimeRef = useRef(-1);
   const [handResult, setHandResult] = useState<HandLandmarkerResult | null>(null);
   const requestRef = useRef<number>(0);
+  const onResultRef = useRef(onResult);
+  onResultRef.current = onResult;
 
   useEffect(() => {
     let active = true;
@@ -64,6 +69,9 @@ export function useMediaPipeHands(videoRef: React.RefObject<HTMLVideoElement | n
         try {
           const result = handLandmarkerRef.current.detectForVideo(video, performance.now());
           setHandResult(result);
+          if (onResultRef.current) {
+            onResultRef.current(result.landmarks?.length > 0 ? result.landmarks[0] : null);
+          }
         } catch (e) {
           console.warn("Hand landmarker warning:", e);
         }
