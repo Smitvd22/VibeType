@@ -44,6 +44,7 @@ export const Storage = {
   saveGestures: (gestures: CustomGesture[]) => {
     if (typeof window === 'undefined') return;
     localStorage.setItem(STORAGE_KEYS.GESTURES, JSON.stringify(gestures));
+    Storage.syncToDatabase();
   },
   getExpressions: (): CustomExpression[] => {
     if (typeof window === 'undefined') return [];
@@ -53,6 +54,7 @@ export const Storage = {
   saveExpressions: (expressions: CustomExpression[]) => {
     if (typeof window === 'undefined') return;
     localStorage.setItem(STORAGE_KEYS.EXPRESSIONS, JSON.stringify(expressions));
+    Storage.syncToDatabase();
   },
   getCombos: (): CustomCombo[] => {
     if (typeof window === 'undefined') return [];
@@ -62,5 +64,36 @@ export const Storage = {
   saveCombos: (combos: CustomCombo[]) => {
     if (typeof window === 'undefined') return;
     localStorage.setItem(STORAGE_KEYS.COMBOS, JSON.stringify(combos));
+    Storage.syncToDatabase();
+  },
+  syncToDatabase: async () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const gestures = JSON.parse(localStorage.getItem(STORAGE_KEYS.GESTURES) || "[]");
+      const expressions = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPRESSIONS) || "[]");
+      const combos = JSON.parse(localStorage.getItem(STORAGE_KEYS.COMBOS) || "[]");
+      await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gestures, expressions, combos })
+      });
+    } catch (e) {
+      console.error("Failed to sync to database", e);
+    }
+  },
+  syncFromDatabase: async (onSyncComplete?: () => void) => {
+    if (typeof window === 'undefined') return;
+    try {
+      const res = await fetch('/api/sync');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.gestures) localStorage.setItem(STORAGE_KEYS.GESTURES, JSON.stringify(data.gestures));
+        if (data.expressions) localStorage.setItem(STORAGE_KEYS.EXPRESSIONS, JSON.stringify(data.expressions));
+        if (data.combos) localStorage.setItem(STORAGE_KEYS.COMBOS, JSON.stringify(data.combos));
+        if (onSyncComplete) onSyncComplete();
+      }
+    } catch (e) {
+      console.error("Failed to sync from database", e);
+    }
   }
 };

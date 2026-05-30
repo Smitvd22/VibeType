@@ -1,6 +1,6 @@
 "use client";
 
-import { Mic, MicOff, Sparkles, Activity, Wrench } from "lucide-react";
+import { Mic, MicOff, Activity, Wrench } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useEmojiEngine } from "@/hooks/useEmojiEngine";
@@ -9,6 +9,8 @@ import { NormalizedLandmark, Classifications } from "@mediapipe/tasks-vision";
 import { useFaceEmbeddings } from "@/hooks/useFaceEmbeddings";
 import { useGestureEmbeddings } from "@/hooks/useGestureEmbeddings";
 import { useComboEmbeddings } from "@/hooks/useComboEmbeddings";
+import { useSession, signIn, signOut } from "next-auth/react";
+import { Storage } from "@/lib/storage";
 
 import { EmojiOverlay } from "@/components/EmojiOverlay";
 import { TranscriptBox } from "@/components/TranscriptBox";
@@ -37,6 +39,7 @@ export default function Home() {
   const { detection: comboDetection, refreshCombos } = useComboEmbeddings(liveLandmarks, liveBlendshapes);
 
   const [mode, setMode] = useState<"live" | "training">("live");
+  const { data: session, status } = useSession();
 
   // Evaluate whenever detection changes
   useEffect(() => {
@@ -44,6 +47,16 @@ export default function Home() {
       evaluateDetections(gestureDetection, faceDetection, comboDetection);
     }
   }, [gestureDetection, faceDetection, comboDetection, mode, evaluateDetections]);
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      Storage.syncFromDatabase(() => {
+        refreshGestures();
+        refreshExpressions();
+        refreshCombos();
+      });
+    }
+  }, [status, refreshGestures, refreshExpressions, refreshCombos]);
 
   const handleProfileAdded = useCallback(() => {
     refreshGestures();
@@ -58,8 +71,8 @@ export default function Home() {
       {/* Header */}
       <header className="w-full flex flex-col sm:flex-row items-center justify-between gap-4 mb-8 glass rounded-2xl p-4 px-6 z-10 border border-white/10 shadow-lg">
         <div className="flex items-center gap-3 text-primary-400">
-          <div className="bg-primary-500/20 p-2 rounded-xl">
-            <Sparkles className="w-6 h-6" />
+          <div className="bg-primary-500/20 p-2 rounded-xl flex items-center justify-center">
+            <img src="/logo.png" alt="VibeType Logo" className="w-8 h-8 rounded-full object-cover shadow-sm" />
           </div>
           <h1 className="text-2xl font-black tracking-tight text-white bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400">VibeType</h1>
         </div>
@@ -101,6 +114,25 @@ export default function Home() {
               </>
             )}
           </button>
+
+          {status === "authenticated" ? (
+            <div className="flex items-center gap-3 bg-white/5 rounded-xl p-2 border border-white/5 pl-4">
+              <span className="text-xs font-bold text-zinc-300">{session.user?.name || session.user?.email?.split('@')[0]}</span>
+              <button 
+                onClick={() => signOut()}
+                className="bg-zinc-800 hover:bg-zinc-700 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
+              >
+                Sign Out
+              </button>
+            </div>
+          ) : (
+            <button 
+              onClick={() => signIn()}
+              className="bg-primary-500 hover:bg-primary-400 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors shadow-lg"
+            >
+              Sign In
+            </button>
+          )}
         </div>
       </header>
 
