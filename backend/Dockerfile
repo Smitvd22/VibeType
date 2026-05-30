@@ -3,10 +3,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install system dependencies for audio processing and building PyAV
-RUN apt-get update && apt-get install -y ffmpeg pkg-config build-essential \
-    libavformat-dev libavcodec-dev libavdevice-dev \
-    libavutil-dev libswscale-dev libswresample-dev libavfilter-dev \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --upgrade pip setuptools wheel
