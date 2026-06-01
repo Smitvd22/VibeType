@@ -22,6 +22,8 @@ app.add_middleware(
 model_size = os.getenv("WHISPER_MODEL_SIZE", "tiny")
 model = WhisperModel(model_size, device="cpu", compute_type="int8")
 
+import asyncio
+
 @app.post("/api/stt")
 async def speech_to_text(
     file: UploadFile = File(...),
@@ -34,16 +36,21 @@ async def speech_to_text(
     # Save uploaded file to a temporary location
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_audio:
-            temp_audio.write(await file.read())
+            content = await file.read()
+            temp_audio.write(content)
             temp_path = temp_audio.name
         
         # Transcribe
         # language can be None for auto-detect, or a specific string like 'en', 'es', 'fr'
-        segments, info = model.transcribe(
-            temp_path,
-            beam_size=5,
-            language=language if language != "auto" else None
-        )
+        def _do_transcribe():
+            return model.transcribe(
+                temp_path,
+                beam_size=1,
+                language=language if language != "auto" else None
+            )
+
+        # Run the heavy CPU task in a threadpool so it doesn't block the FastAPI event loop
+        segments, info = await asyncio.to_thread(_do_transcribe)
         
         transcript = ""
         for segment in segments:

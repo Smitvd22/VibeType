@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { NormalizedLandmark } from "@mediapipe/tasks-vision";
-import { calculateGestureSimilarity } from "@/lib/gestureSimilarity";
+import { calculateMultiHandSimilarity } from "@/lib/gestureSimilarity";
 import { Storage, CustomGesture } from "@/lib/storage";
 import { TemporalSmoother } from "@/lib/temporalSmoothing";
 
@@ -9,7 +9,7 @@ export interface GestureDetection {
   confidence: number;
 }
 
-export function useGestureEmbeddings(liveLandmarks: NormalizedLandmark[] | null) {
+export function useGestureEmbeddings(liveLandmarks: NormalizedLandmark[][] | null) {
   const [savedGestures, setSavedGestures] = useState<CustomGesture[]>([]);
   const [detection, setDetection] = useState<GestureDetection>({ gesture: null, confidence: 0 });
   const smoother = useMemo(() => new TemporalSmoother<string | null>(5), []);
@@ -36,7 +36,7 @@ export function useGestureEmbeddings(liveLandmarks: NormalizedLandmark[] | null)
     let highestScore = 0;
 
     for (const sg of savedGestures) {
-      const score = calculateGestureSimilarity(liveLandmarks, sg.landmarks);
+      const score = calculateMultiHandSimilarity(liveLandmarks, sg.landmarks);
       if (score > highestScore) {
         highestScore = score;
         bestMatch = sg;

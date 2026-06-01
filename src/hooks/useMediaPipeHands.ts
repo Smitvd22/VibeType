@@ -3,7 +3,7 @@ import { HandLandmarker, FilesetResolver, HandLandmarkerResult, NormalizedLandma
 
 export function useMediaPipeHands(
   videoRef: React.RefObject<HTMLVideoElement | null>,
-  onResult?: (landmarks: NormalizedLandmark[] | null) => void
+  onResult?: (landmarks: NormalizedLandmark[][] | null) => void
 ) {
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const handLandmarkerRef = useRef<HandLandmarker | null>(null);
@@ -70,7 +70,7 @@ export function useMediaPipeHands(
           const result = handLandmarkerRef.current.detectForVideo(video, performance.now());
           setHandResult(result);
           if (onResultRef.current) {
-            onResultRef.current(result.landmarks?.length > 0 ? result.landmarks[0] : null);
+            onResultRef.current(result.landmarks?.length > 0 ? result.landmarks : null);
           }
         } catch (e) {
           console.warn("Hand landmarker warning:", e);

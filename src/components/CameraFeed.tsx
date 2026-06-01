@@ -8,7 +8,7 @@ import { useEffect, useRef } from "react";
 import { DrawingUtils, HandLandmarker, FaceLandmarker, NormalizedLandmark, Classifications } from "@mediapipe/tasks-vision";
 
 interface CameraFeedProps {
-  onHandsDetected?: (landmarks: NormalizedLandmark[] | null) => void;
+  onHandsDetected?: (landmarks: NormalizedLandmark[][] | null) => void;
   onFaceDetected?: (blendshapes: Classifications[] | null) => void;
 }
 

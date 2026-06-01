@@ -25,7 +25,7 @@ export function DetectionPanel({ faceDetection, gestureDetection }: DetectionPan
             <ConfidenceMeter 
               label="Match Score" 
               confidence={faceDetection.confidence} 
-              threshold={faceDetection.expression?.threshold || 0.85} 
+              threshold={faceDetection.expression?.threshold || 0.70} 
             />
           </div>
         </div>
@@ -43,7 +43,7 @@ export function DetectionPanel({ faceDetection, gestureDetection }: DetectionPan
             <ConfidenceMeter 
               label="Match Score" 
               confidence={gestureDetection.confidence} 
-              threshold={gestureDetection.gesture?.threshold || 0.75} 
+              threshold={gestureDetection.gesture?.threshold || 0.70} 
             />
           </div>
         </div>

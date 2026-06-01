@@ -78,7 +78,7 @@ export function useExpressionTraining(currentBlendshapes: Classifications[] | nu
               name,
               emoji,
               profile: { blendshapes: avgProfile },
-              threshold: 0.85
+              threshold: 0.70
             };
 
             const existingExpressions = Storage.getExpressions();

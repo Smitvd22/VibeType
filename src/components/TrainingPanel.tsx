@@ -7,7 +7,7 @@ import { SavedMappings } from "./SavedMappings";
 import { Hand, Smile, Zap } from "lucide-react";
 
 interface TrainingPanelProps {
-  currentLandmarks: NormalizedLandmark[] | null;
+  currentLandmarks: NormalizedLandmark[][] | null;
   currentBlendshapes: Classifications[] | null;
   onProfileAdded: () => void;
 }

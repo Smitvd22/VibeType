@@ -31,7 +31,7 @@ export default function Home() {
   const { transcript, interimTranscript, isListening, startListening, stopListening, setTranscript, error: speechError } = useSpeechRecognition();
   const { activeEmoji, evaluateDetections } = useEmojiEngine(setTranscript);
 
-  const [liveLandmarks, setLiveLandmarks] = useState<NormalizedLandmark[] | null>(null);
+  const [liveLandmarks, setLiveLandmarks] = useState<NormalizedLandmark[][] | null>(null);
   const [liveBlendshapes, setLiveBlendshapes] = useState<Classifications[] | null>(null);
 
   const { detection: gestureDetection, refreshGestures } = useGestureEmbeddings(liveLandmarks);

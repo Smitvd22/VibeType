@@ -4,7 +4,7 @@ import { NormalizedLandmark, Classifications } from "@mediapipe/tasks-vision";
 import { Loader2, Camera } from "lucide-react";
 
 interface ComboTrainerProps {
-  currentLandmarks: NormalizedLandmark[] | null;
+  currentLandmarks: NormalizedLandmark[][] | null;
   currentBlendshapes: Classifications[] | null;
   onDone: () => void;
 }

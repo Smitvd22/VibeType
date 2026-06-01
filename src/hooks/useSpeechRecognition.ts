@@ -10,14 +10,65 @@ export function useSpeechRecognition(language: string = "en") {
   const streamRef = useRef<MediaStream | null>(null);
   const isIntentionallyStopped = useRef<boolean>(true);
   const chunkIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const isProcessingChunk = useRef<boolean>(false);
+  
+  // Native recognition refs
+  const nativeRecognitionRef = useRef<any>(null);
+  const usingNative = useRef<boolean>(false);
 
-  const STT_URL = process.env.NEXT_PUBLIC_STT_BACKEND_URL || "http://localhost:10000/api/stt";
+  const baseUrl = process.env.NEXT_PUBLIC_STT_BACKEND_URL || "http://localhost:10000";
+  const STT_URL = baseUrl.endsWith("/api/stt") ? baseUrl : `${baseUrl.replace(/\/$/, "")}/api/stt`;
+
+  // Initialize native recognition
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = language;
+      
+      recognition.onresult = (event: any) => {
+        let currentInterim = "";
+        let finalTrans = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcriptPiece = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTrans += transcriptPiece + " ";
+          } else {
+            currentInterim += transcriptPiece;
+          }
+        }
+        
+        if (finalTrans) {
+          setTranscript((prev) => (prev ? prev + " " + finalTrans.trim() : finalTrans.trim()));
+        }
+        setInterimTranscript(currentInterim);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn("Native SpeechRecognition error:", event.error);
+        if (event.error === "not-allowed" || event.error === "audio-capture") {
+          setError("Microphone permission denied or device not found.");
+          setIsListening(false);
+          usingNative.current = false;
+        }
+      };
+
+      recognition.onend = () => {
+        if (!isIntentionallyStopped.current && usingNative.current) {
+          try {
+            recognition.start();
+          } catch(e) {}
+        }
+      };
+
+      nativeRecognitionRef.current = recognition;
+    }
+  }, [language]);
 
   const processAudioChunk = async (blob: Blob) => {
-    if (blob.size === 0 || isProcessingChunk.current) return;
+    if (blob.size === 0) return;
     
-    isProcessingChunk.current = true;
     setInterimTranscript("...");
 
     try {
@@ -41,29 +92,64 @@ export function useSpeechRecognition(language: string = "en") {
     } catch (err) {
       console.error("Failed to process audio chunk", err);
     } finally {
-      isProcessingChunk.current = false;
       setInterimTranscript("");
     }
   };
 
   const startListening = useCallback(async () => {
+    isIntentionallyStopped.current = false;
+    setError(null);
+    
+    // First, try native browser speech recognition (fastest, free, no backend latency)
+    if (nativeRecognitionRef.current) {
+      try {
+        usingNative.current = true;
+        nativeRecognitionRef.current.start();
+        setIsListening(true);
+        return; // Successfully started native API, exit early!
+      } catch (e: any) {
+        // If it throws an error (e.g. already started), we can ignore it or fallback
+        if (e.name !== "InvalidStateError") {
+          console.warn("Native API failed to start, falling back to WebM chunks", e);
+          usingNative.current = false;
+        } else {
+          setIsListening(true);
+          return;
+        }
+      }
+    }
+
+    // --- FALLBACK TO BACKEND API (WebM Chunks) ---
     try {
-      isIntentionallyStopped.current = false;
-      
+      usingNative.current = false;
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-      mediaRecorderRef.current = mediaRecorder;
-      
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0 && !isIntentionallyStopped.current) {
-          processAudioChunk(event.data);
-        }
+      const recordChunk = () => {
+        if (isIntentionallyStopped.current) return;
+        
+        const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        mediaRecorderRef.current = mediaRecorder;
+        
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0 && !isIntentionallyStopped.current) {
+            processAudioChunk(event.data);
+          }
+        };
+
+        mediaRecorder.start();
+        
+        chunkIntervalRef.current = setTimeout(() => {
+          if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+            mediaRecorderRef.current.stop();
+          }
+          if (!isIntentionallyStopped.current) {
+            recordChunk();
+          }
+        }, 3000);
       };
 
-      // Record in chunks of 3000ms (3 seconds) to simulate streaming
-      mediaRecorder.start(3000);
+      recordChunk();
       setIsListening(true);
       setError(null);
     } catch (err: any) {
@@ -75,6 +161,16 @@ export function useSpeechRecognition(language: string = "en") {
 
   const stopListening = useCallback(() => {
     isIntentionallyStopped.current = true;
+    
+    // Stop native API if active
+    if (usingNative.current && nativeRecognitionRef.current) {
+      nativeRecognitionRef.current.stop();
+      usingNative.current = false;
+      setIsListening(false);
+      return;
+    }
+
+    // Stop fallback API if active
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
     }

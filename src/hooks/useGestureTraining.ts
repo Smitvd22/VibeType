@@ -5,11 +5,11 @@ import { Storage, CustomGesture } from "@/lib/storage";
 
 export type TrainingPhase = "idle" | "preparing" | "recording";
 
-export function useGestureTraining(currentLandmarks: NormalizedLandmark[] | null) {
+export function useGestureTraining(currentLandmarks: NormalizedLandmark[][] | null) {
   const [phase, setPhase] = useState<TrainingPhase>("idle");
   const [countdown, setCountdown] = useState<number | null>(null);
   
-  const framesRef = useRef<NormalizedLandmark[][]>([]);
+  const framesRef = useRef<NormalizedLandmark[][][]>([]);
   
   // Collect frames during recording phase
   useEffect(() => {
@@ -58,35 +58,49 @@ export function useGestureTraining(currentLandmarks: NormalizedLandmark[] | null
               return;
             }
             
-            // Calculate average landmarks
-            // We expect 21 landmarks per frame
+            // Calculate average landmarks per hand
             const numFrames = framesRef.current.length;
-            const avgLandmarks: NormalizedLandmark[] = [];
-            
-            for (let i = 0; i < 21; i++) {
-              let sumX = 0, sumY = 0, sumZ = 0;
-              for (const frame of framesRef.current) {
-                if (frame[i]) {
-                  sumX += frame[i].x;
-                  sumY += frame[i].y;
-                  sumZ += frame[i].z;
-                }
-              }
-              avgLandmarks.push({
-                x: sumX / numFrames,
-                y: sumY / numFrames,
-                z: sumZ / numFrames,
-                visibility: 1
-              });
+            let maxHands = 0;
+            for (const frame of framesRef.current) {
+               if (frame.length > maxHands) maxHands = frame.length;
             }
 
-            const normalized = normalizeHandLandmarks(avgLandmarks);
+            const avgHands: NormalizedLandmark[][] = [];
+            
+            for (let h = 0; h < maxHands; h++) {
+               const avgLandmarks: NormalizedLandmark[] = [];
+               let framesWithHand = 0;
+               for (let i = 0; i < 21; i++) {
+                 let sumX = 0, sumY = 0, sumZ = 0;
+                 framesWithHand = 0;
+                 for (const frame of framesRef.current) {
+                   if (frame[h] && frame[h][i]) {
+                     sumX += frame[h][i].x;
+                     sumY += frame[h][i].y;
+                     sumZ += frame[h][i].z;
+                     framesWithHand++;
+                   }
+                 }
+                 if (framesWithHand > 0) {
+                   avgLandmarks.push({
+                     x: sumX / framesWithHand,
+                     y: sumY / framesWithHand,
+                     z: sumZ / framesWithHand,
+                     visibility: 1
+                   });
+                 }
+               }
+               if (avgLandmarks.length === 21) {
+                 avgHands.push(normalizeHandLandmarks(avgLandmarks));
+               }
+            }
+
             const newGesture: CustomGesture = {
               id: Date.now().toString(),
               name,
               emoji,
-              landmarks: normalized,
-              threshold: 0.75
+              landmarks: avgHands,
+              threshold: 0.70
             };
 
             const existingGestures = Storage.getGestures();

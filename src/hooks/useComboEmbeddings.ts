@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { NormalizedLandmark, Classifications } from "@mediapipe/tasks-vision";
-import { calculateGestureSimilarity } from "@/lib/gestureSimilarity";
+import { calculateMultiHandSimilarity } from "@/lib/gestureSimilarity";
 import { calculateFacialSimilarity } from "@/lib/facialSimilarity";
 import { extractFaceProfile } from "@/lib/facialSimilarity";
 import { Storage, CustomCombo } from "@/lib/storage";
@@ -12,7 +12,7 @@ export interface ComboDetection {
 }
 
 export function useComboEmbeddings(
-  liveLandmarks: NormalizedLandmark[] | null,
+  liveLandmarks: NormalizedLandmark[][] | null,
   liveBlendshapes: Classifications[] | null
 ) {
   const [savedCombos, setSavedCombos] = useState<CustomCombo[]>([]);
@@ -47,7 +47,7 @@ export function useComboEmbeddings(
     let highestScore = 0;
 
     for (const sc of savedCombos) {
-      const gestureScore = calculateGestureSimilarity(liveLandmarks, sc.landmarks);
+      const gestureScore = calculateMultiHandSimilarity(liveLandmarks, sc.landmarks);
       const faceScore = calculateFacialSimilarity(liveFaceProfile, sc.profile);
       
       // For combo, BOTH must exceed their thresholds

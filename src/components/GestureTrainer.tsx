@@ -4,7 +4,7 @@ import { NormalizedLandmark } from "@mediapipe/tasks-vision";
 import { Loader2, Camera } from "lucide-react";
 
 interface GestureTrainerProps {
-  currentLandmarks: NormalizedLandmark[] | null;
+  currentLandmarks: NormalizedLandmark[][] | null;
   onDone: () => void;
 }
 

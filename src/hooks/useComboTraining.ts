@@ -5,13 +5,13 @@ import { Storage, CustomCombo } from "@/lib/storage";
 import { TrainingPhase } from "./useGestureTraining";
 
 export function useComboTraining(
-  currentLandmarks: NormalizedLandmark[] | null,
+  currentLandmarks: NormalizedLandmark[][] | null,
   currentBlendshapes: Classifications[] | null
 ) {
   const [phase, setPhase] = useState<TrainingPhase>("idle");
   const [countdown, setCountdown] = useState<number | null>(null);
   
-  const handFramesRef = useRef<NormalizedLandmark[][]>([]);
+  const handFramesRef = useRef<NormalizedLandmark[][][]>([]);
   const faceFramesRef = useRef<Classifications[][]>([]);
   
   useEffect(() => {
@@ -70,19 +70,40 @@ export function useComboTraining(
             
             // Average Hands
             const numHandFrames = handFramesRef.current.length;
-            const avgLandmarks: NormalizedLandmark[] = [];
-            for (let i = 0; i < 21; i++) {
-              let sumX = 0, sumY = 0, sumZ = 0;
-              for (const frame of handFramesRef.current) {
-                if (frame[i]) {
-                  sumX += frame[i].x; sumY += frame[i].y; sumZ += frame[i].z;
-                }
-              }
-              avgLandmarks.push({
-                x: sumX / numHandFrames, y: sumY / numHandFrames, z: sumZ / numHandFrames, visibility: 1
-              });
+            let maxHands = 0;
+            for (const frame of handFramesRef.current) {
+               if (frame.length > maxHands) maxHands = frame.length;
             }
-            const normalizedHands = normalizeHandLandmarks(avgLandmarks);
+
+            const avgHands: NormalizedLandmark[][] = [];
+            
+            for (let h = 0; h < maxHands; h++) {
+               const avgLandmarks: NormalizedLandmark[] = [];
+               let framesWithHand = 0;
+               for (let i = 0; i < 21; i++) {
+                 let sumX = 0, sumY = 0, sumZ = 0;
+                 framesWithHand = 0;
+                 for (const frame of handFramesRef.current) {
+                   if (frame[h] && frame[h][i]) {
+                     sumX += frame[h][i].x;
+                     sumY += frame[h][i].y;
+                     sumZ += frame[h][i].z;
+                     framesWithHand++;
+                   }
+                 }
+                 if (framesWithHand > 0) {
+                   avgLandmarks.push({
+                     x: sumX / framesWithHand,
+                     y: sumY / framesWithHand,
+                     z: sumZ / framesWithHand,
+                     visibility: 1
+                   });
+                 }
+               }
+               if (avgLandmarks.length === 21) {
+                 avgHands.push(normalizeHandLandmarks(avgLandmarks));
+               }
+            }
             
             // Average Face
             const numFaceFrames = faceFramesRef.current.length;
@@ -102,11 +123,11 @@ export function useComboTraining(
               id: Date.now().toString(),
               name,
               emoji,
-              landmarks: normalizedHands,
+              landmarks: avgHands,
               profile: { blendshapes: avgProfile },
               thresholds: {
-                gesture: 0.75,
-                expression: 0.85
+                gesture: 0.70,
+                expression: 0.70
               }
             };
 

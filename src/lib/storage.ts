@@ -5,8 +5,8 @@ export interface CustomGesture {
   id: string;
   name: string;
   emoji: string;
-  landmarks: NormalizedLandmark[]; // normalized
-  threshold: number; // confidence threshold, default ~0.75
+  landmarks: NormalizedLandmark[][]; // normalized
+  threshold: number; // confidence threshold, default ~0.70
 }
 
 export interface CustomExpression {
@@ -14,14 +14,14 @@ export interface CustomExpression {
   name: string;
   emoji: string;
   profile: FaceProfile;
-  threshold: number; // default ~0.85
+  threshold: number; // default ~0.70
 }
 
 export interface CustomCombo {
   id: string;
   name: string;
   emoji: string;
-  landmarks: NormalizedLandmark[];
+  landmarks: NormalizedLandmark[][];
   profile: FaceProfile;
   thresholds: {
     gesture: number;
