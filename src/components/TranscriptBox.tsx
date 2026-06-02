@@ -6,9 +6,10 @@ interface TranscriptBoxProps {
   interimTranscript: string;
   error: string | null;
   setTranscript: (val: string) => void;
+  onFinishSession?: () => void;
 }
 
-export function TranscriptBox({ transcript, interimTranscript, error, setTranscript }: TranscriptBoxProps) {
+export function TranscriptBox({ transcript, interimTranscript, error, setTranscript, onFinishSession }: TranscriptBoxProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -23,14 +24,25 @@ export function TranscriptBox({ transcript, interimTranscript, error, setTranscr
         <h2 className="font-bold text-zinc-200 flex items-center gap-2">
           Transcript
         </h2>
-        <button
-          onClick={handleCopy}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors text-sm text-zinc-300 font-medium"
-          title="Copy Transcript"
-        >
-          {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-          {copied ? <span className="text-emerald-400">Copied!</span> : "Copy"}
-        </button>
+        <div className="flex items-center gap-2">
+          {onFinishSession && (
+            <button
+              onClick={onFinishSession}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary-500/20 hover:bg-primary-500/30 transition-colors text-sm text-primary-400 font-bold"
+              title="Finish Session"
+            >
+              Finish
+            </button>
+          )}
+          <button
+            onClick={handleCopy}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors text-sm text-zinc-300 font-medium"
+            title="Copy Transcript"
+          >
+            {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+            {copied ? <span className="text-emerald-400">Copied!</span> : "Copy"}
+          </button>
+        </div>
       </div>
       <div className="flex-1 flex flex-col p-6 overflow-hidden gap-4">
         {error && (

@@ -16,6 +16,8 @@ import { EmojiOverlay } from "@/components/EmojiOverlay";
 import { TranscriptBox } from "@/components/TranscriptBox";
 import { DetectionPanel } from "@/components/DetectionPanel";
 import { TrainingPanel } from "@/components/TrainingPanel";
+import { useChitChatIntegration } from "@/integrations/chitchat/useChitChatIntegration";
+import { ShareCard } from "@/components/ShareCard";
 
 const CameraFeed = dynamic(() => import("@/components/CameraFeed"), { 
   ssr: false,
@@ -41,12 +43,62 @@ export default function Home() {
   const [mode, setMode] = useState<"live" | "training">("live");
   const { data: session, status } = useSession();
 
+  // ChitChat Integration & Session Tracking
+  const { isConnected, sendResult } = useChitChatIntegration();
+  const [sessionEmojis, setSessionEmojis] = useState<Set<string>>(new Set());
+  const [sessionExpressions, setSessionExpressions] = useState<Set<string>>(new Set());
+  const [sessionGestures, setSessionGestures] = useState<Set<string>>(new Set());
+  const [isShareCardOpen, setIsShareCardOpen] = useState(false);
+  const [shareId, setShareId] = useState<string | null>(null);
+
   // Evaluate whenever detection changes
   useEffect(() => {
     if (mode === "live") {
       evaluateDetections(gestureDetection, faceDetection, comboDetection);
     }
   }, [gestureDetection, faceDetection, comboDetection, mode, evaluateDetections]);
+
+  useEffect(() => {
+    if (isListening) {
+      if (activeEmoji) {
+        setSessionEmojis(prev => new Set(prev).add(activeEmoji.char));
+      }
+      if (faceDetection.expression) {
+        const exprName = faceDetection.expression.name;
+        setSessionExpressions(prev => new Set(prev).add(exprName));
+      }
+      if (gestureDetection.gesture) {
+        const gestureName = gestureDetection.gesture.name;
+        setSessionGestures(prev => new Set(prev).add(gestureName));
+      }
+      if (comboDetection.combo) {
+        const comboName = comboDetection.combo.name;
+        setSessionGestures(prev => new Set(prev).add(comboName));
+      }
+    }
+  }, [isListening, activeEmoji, faceDetection, gestureDetection, comboDetection]);
+
+  const handleStartListening = () => {
+    setSessionEmojis(new Set());
+    setSessionExpressions(new Set());
+    setSessionGestures(new Set());
+    startListening();
+  };
+
+  const handleFinishSession = () => {
+    stopListening();
+    const id = crypto.randomUUID();
+    setShareId(id);
+    const payload = {
+      text: transcript,
+      emojis: Array.from(sessionEmojis),
+      expressions: Array.from(sessionExpressions),
+      gestures: Array.from(sessionGestures),
+      timestamp: Date.now()
+    };
+    localStorage.setItem(`vibetype_share_${id}`, JSON.stringify(payload));
+    setIsShareCardOpen(true);
+  };
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -94,7 +146,7 @@ export default function Home() {
           </div>
 
           <button
-            onClick={isListening ? stopListening : startListening}
+            onClick={isListening ? stopListening : handleStartListening}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl transition-all font-bold shadow-lg ${
               isListening ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
             }`}
@@ -178,6 +230,7 @@ export default function Home() {
             interimTranscript={interimTranscript}
             error={speechError}
             setTranscript={setTranscript}
+            onFinishSession={handleFinishSession}
           />
         )}
         {mode === "training" && (
@@ -195,6 +248,26 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {isShareCardOpen && shareId && (
+        <ShareCard
+          text={transcript}
+          emojis={Array.from(sessionEmojis)}
+          expressions={Array.from(sessionExpressions)}
+          gestures={Array.from(sessionGestures)}
+          shareUrl={`${typeof window !== 'undefined' ? window.location.origin : ''}/share/${shareId}`}
+          isConnected={isConnected}
+          onSendToChitChat={() => {
+            sendResult(
+              transcript,
+              Array.from(sessionEmojis),
+              Array.from(sessionExpressions),
+              Array.from(sessionGestures)
+            );
+          }}
+          onClose={() => setIsShareCardOpen(false)}
+        />
+      )}
     </main>
   );
 }
