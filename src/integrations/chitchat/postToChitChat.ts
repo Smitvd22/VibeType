@@ -8,6 +8,7 @@ export interface VibeTypePayload {
     timestamp?: number;
     chatId?: string;
     conversationId?: string;
+    userId?: string;
   };
 }
 

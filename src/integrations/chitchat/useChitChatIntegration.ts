@@ -48,6 +48,7 @@ export function useChitChatIntegration() {
         gestures,
         chatId: transferData.chatId || undefined,
         conversationId: transferData.conversationId || undefined,
+        userId: transferData.userId || undefined,
       }
     });
   }, [transferData]);
@@ -62,6 +63,7 @@ export function useChitChatIntegration() {
         gestures: [],
         chatId: transferData.chatId || undefined,
         conversationId: transferData.conversationId || undefined,
+        userId: transferData.userId || undefined,
       }
     });
   }, [transferData]);
@@ -76,6 +78,7 @@ export function useChitChatIntegration() {
         gestures: [],
         chatId: transferData.chatId || undefined,
         conversationId: transferData.conversationId || undefined,
+        userId: transferData.userId || undefined,
       }
     });
   }, [transferData]);

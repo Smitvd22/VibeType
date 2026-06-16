@@ -116,7 +116,14 @@ export default function Home() {
     }
   }, [transcript, sendStreamChunk]);
 
-  // Removed duplicate emoji streaming since it's sent via chunk
+  useEffect(() => {
+    if (activeEmoji && activeEmoji.id !== lastEmojiTimeRef.current) {
+      lastEmojiTimeRef.current = activeEmoji.id;
+      if (chitchat.isConnected) {
+        chitchat.sendStreamEmoji(activeEmoji.char);
+      }
+    }
+  }, [activeEmoji, chitchat]);
 
   const handleStartListening = () => {
     setSessionEmojis(new Set());
@@ -127,6 +134,15 @@ export default function Home() {
 
   const handleFinishSession = () => {
     stopListening();
+    
+    // Send full message for non-streaming integrations like ChitChat
+    sendResult(
+      transcript,
+      Array.from(sessionEmojis),
+      Array.from(sessionExpressions),
+      Array.from(sessionGestures)
+    );
+
     window.close();
   };
 
