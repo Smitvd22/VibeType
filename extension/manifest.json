@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "VibeType",
+  "version": "1.0.0",
+  "description": "Voice -> Text | Facial Expressions -> Emojis | Anywhere",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "commands"
+  ],
+  "host_permissions": [
+    "http://localhost:3000/*",
+    "https://vibetype.com/*",
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "src/background/index.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/index.tsx"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "src/popup/index.html"
+  },
+  "commands": {
+    "toggle-vibe": {
+      "suggested_key": {
+        "default": "Alt+Space",
+        "mac": "Alt+Space"
+      },
+      "description": "Toggle VibeType recording"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "assets/*"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

@@ -8,11 +8,12 @@ interface ShareCardProps {
   gestures: string[];
   shareUrl: string;
   isConnected: boolean;
+  isExtension?: boolean;
   onSendToChitChat: () => void;
   onClose: () => void;
 }
 
-export function ShareCard({ text, emojis, expressions, gestures, shareUrl, isConnected, onSendToChitChat, onClose }: ShareCardProps) {
+export function ShareCard({ text, emojis, expressions, gestures, shareUrl, isConnected, isExtension, onSendToChitChat, onClose }: ShareCardProps) {
   const [copied, setCopied] = useState(false);
   const [sentMessage, setSentMessage] = useState(false);
 
@@ -92,13 +93,13 @@ export function ShareCard({ text, emojis, expressions, gestures, shareUrl, isCon
                 className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)]"
               >
                 {sentMessage ? <Check className="w-5 h-5" /> : <Send className="w-5 h-5" />}
-                {sentMessage ? "Sent!" : "Send to ChitChat"}
+                {sentMessage ? "Sent!" : isExtension ? "Insert into Page" : "Send to ChitChat"}
               </button>
-              {sentMessage && <span className="text-xs text-emerald-400 font-medium">Message sent to ChitChat</span>}
+              {sentMessage && <span className="text-xs text-emerald-400 font-medium">Message sent to {isExtension ? "Page" : "ChitChat"}</span>}
             </div>
           ) : (
              <div className="w-full sm:w-auto p-3 text-center bg-white/5 rounded-xl border border-white/10 text-zinc-400 text-sm font-medium">
-               Not launched from ChitChat
+               Not launched from {isExtension ? "an Extension" : "ChitChat"}
              </div>
           )}
         </div>

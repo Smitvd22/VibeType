@@ -17,7 +17,9 @@ import { TranscriptBox } from "@/components/TranscriptBox";
 import { DetectionPanel } from "@/components/DetectionPanel";
 import { TrainingPanel } from "@/components/TrainingPanel";
 import { useChitChatIntegration } from "@/integrations/chitchat/useChitChatIntegration";
-import { ShareCard } from "@/components/ShareCard";
+import { useExtensionIntegration } from "@/integrations/extension/useExtensionIntegration";
+
+import { useRef } from "react";
 
 const CameraFeed = dynamic(() => import("@/components/CameraFeed"), { 
   ssr: false,
@@ -43,13 +45,36 @@ export default function Home() {
   const [mode, setMode] = useState<"live" | "training">("live");
   const { data: session, status } = useSession();
 
-  // ChitChat Integration & Session Tracking
-  const { isConnected, sendResult } = useChitChatIntegration();
+  // Integrations & Session Tracking
+  const chitchat = useChitChatIntegration();
+  const extension = useExtensionIntegration();
+  
+  const isConnected = chitchat.isConnected || extension.isConnected;
+  const isExtension = extension.isExtension;
+
   const [sessionEmojis, setSessionEmojis] = useState<Set<string>>(new Set());
   const [sessionExpressions, setSessionExpressions] = useState<Set<string>>(new Set());
   const [sessionGestures, setSessionGestures] = useState<Set<string>>(new Set());
   const [isShareCardOpen, setIsShareCardOpen] = useState(false);
   const [shareId, setShareId] = useState<string | null>(null);
+
+  const lastTranscriptRef = useRef("");
+  const lastEmojiTimeRef = useRef(0);
+
+  const sendResult = useCallback((text: string, emojis: string[], expressions: string[], gestures: string[]) => {
+    if (chitchat.isConnected) chitchat.sendResult(text, emojis, expressions, gestures);
+    if (extension.isConnected) extension.sendResult(text, emojis, expressions, gestures);
+  }, [chitchat, extension]);
+
+  const sendStreamChunk = useCallback((text: string) => {
+    if (chitchat.isConnected) chitchat.sendStreamChunk(text);
+    if (extension.isConnected) extension.sendStreamChunk(text);
+  }, [chitchat, extension]);
+
+  const sendStreamEmoji = useCallback((emoji: string) => {
+    // We do not send a separate emoji stream event since emojis are appended to the transcript
+    // and sent via VIBETYPE_STREAM_CHUNK automatically.
+  }, []);
 
   // Evaluate whenever detection changes
   useEffect(() => {
@@ -78,6 +103,21 @@ export default function Home() {
     }
   }, [isListening, activeEmoji, faceDetection, gestureDetection, comboDetection]);
 
+  // Live streaming
+  useEffect(() => {
+    if (transcript.length > lastTranscriptRef.current.length) {
+      const diff = transcript.substring(lastTranscriptRef.current.length).trim();
+      if (diff) {
+        sendStreamChunk(" " + diff);
+      }
+      lastTranscriptRef.current = transcript;
+    } else if (transcript.length < lastTranscriptRef.current.length) {
+      lastTranscriptRef.current = transcript;
+    }
+  }, [transcript, sendStreamChunk]);
+
+  // Removed duplicate emoji streaming since it's sent via chunk
+
   const handleStartListening = () => {
     setSessionEmojis(new Set());
     setSessionExpressions(new Set());
@@ -87,17 +127,7 @@ export default function Home() {
 
   const handleFinishSession = () => {
     stopListening();
-    const id = crypto.randomUUID();
-    setShareId(id);
-    const payload = {
-      text: transcript,
-      emojis: Array.from(sessionEmojis),
-      expressions: Array.from(sessionExpressions),
-      gestures: Array.from(sessionGestures),
-      timestamp: Date.now()
-    };
-    localStorage.setItem(`vibetype_share_${id}`, JSON.stringify(payload));
-    setIsShareCardOpen(true);
+    window.close();
   };
 
   useEffect(() => {
@@ -143,6 +173,11 @@ export default function Home() {
             >
               <Wrench className="w-4 h-4" /> Training Mode
             </button>
+          </div>
+          
+          <div className="text-xs text-zinc-500 font-mono flex flex-col">
+            <span>Ext: {extension.isExtension ? "YES" : "NO"} | Conn: {extension.isConnected ? "YES" : "NO"}</span>
+            <span>ChitChat: {chitchat.isConnected ? "YES" : "NO"}</span>
           </div>
 
           <button
@@ -230,7 +265,7 @@ export default function Home() {
             interimTranscript={interimTranscript}
             error={speechError}
             setTranscript={setTranscript}
-            onFinishSession={handleFinishSession}
+            onFinishSession={isConnected ? handleFinishSession : undefined}
           />
         )}
         {mode === "training" && (
@@ -249,25 +284,7 @@ export default function Home() {
         )}
       </div>
 
-      {isShareCardOpen && shareId && (
-        <ShareCard
-          text={transcript}
-          emojis={Array.from(sessionEmojis)}
-          expressions={Array.from(sessionExpressions)}
-          gestures={Array.from(sessionGestures)}
-          shareUrl={`${typeof window !== 'undefined' ? window.location.origin : ''}/share/${shareId}`}
-          isConnected={isConnected}
-          onSendToChitChat={() => {
-            sendResult(
-              transcript,
-              Array.from(sessionEmojis),
-              Array.from(sessionExpressions),
-              Array.from(sessionGestures)
-            );
-          }}
-          onClose={() => setIsShareCardOpen(false)}
-        />
-      )}
+      {/* ShareCard removed for streaming-first architecture */}
     </main>
   );
 }

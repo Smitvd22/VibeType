@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+/* 
+  Reset inside the Shadow DOM to ensure styles apply correctly 
+  and prevent bleeding from the host page.
+*/
+:host {
+  all: initial;
+}

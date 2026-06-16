@@ -1,17 +1,17 @@
 export interface VibeTypePayload {
-  type: "VIBETYPE_MESSAGE";
-  text: string;
-  emojis: string[];
-  metadata: {
-    expressions: string[];
-    gestures: string[];
-    timestamp: number;
+  type: "VIBETYPE_MESSAGE" | "VIBETYPE_STREAM_CHUNK" | "VIBETYPE_STREAM_EMOJI";
+  text?: string;
+  emojis?: string[];
+  metadata?: {
+    expressions?: string[];
+    gestures?: string[];
+    timestamp?: number;
     chatId?: string;
     conversationId?: string;
   };
 }
 
-export function postToChitChat(payload: Omit<VibeTypePayload, "type" | "metadata"> & { metadata: Omit<VibeTypePayload["metadata"], "timestamp"> }): boolean {
+export function postToChitChat(payload: Omit<VibeTypePayload, "type" | "metadata"> & { type?: string, metadata?: Omit<VibeTypePayload["metadata"], "timestamp"> }): boolean {
   const CHITCHAT_URL = process.env.NEXT_PUBLIC_CHITCHAT_URL;
   
   if (!CHITCHAT_URL) {
@@ -25,7 +25,7 @@ export function postToChitChat(payload: Omit<VibeTypePayload, "type" | "metadata
 
   try {
     const fullPayload: VibeTypePayload = {
-      type: "VIBETYPE_MESSAGE",
+      type: (payload.type as any) || "VIBETYPE_MESSAGE",
       text: payload.text,
       emojis: payload.emojis,
       metadata: {

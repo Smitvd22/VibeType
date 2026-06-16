@@ -42,3 +42,7 @@ yarn-error.log*
 next-env.d.ts
 
 backend/__pycache__
+
+# extension
+/extension/dist
+/extension/node_modules
